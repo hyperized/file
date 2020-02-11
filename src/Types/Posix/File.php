@@ -20,9 +20,13 @@ class File
     protected bool $relative;
     protected bool $relativeToHome;
 
+    protected $inode;
+
 //    protected $fileHandler;
 
-    public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null)
+    // TODO: Split create vs listing functionality between constructor and static create
+
+    public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null, bool $persist = true)
     {
         // If this is true, fail fast.
         if (self::pathIsDirectory($path->getValue())) {
@@ -33,6 +37,8 @@ class File
 
         // Set requested file information
         $this->path = $path;
+
+        // TODO: Only this if file does not exist yet.
         $this->owner = $owner ?? new User((new SystemUser())->getUsername());
         $this->group = $group ?? new Group((new SystemUser())->getUsername());
         $this->mode = $mode ?? new Mode(self::$defaultMode);
@@ -42,22 +48,27 @@ class File
         $this->relative = self::pathIsRelative($path->getValue());
         $this->relativeToHome = self::pathIsRelativeToHome($path->getValue());
 
-        // To process file, we need to know if it exists or not
-        if (!$this->exists) {
-            $this->touchIfRequired();
+        if ($persist) {
+            // To process file, we need to know if it exists or not
+            if (!$this->exists) {
+                $this->touchIfRequired();
+            }
+
+            // Ensure permissions are correct
+            $this->chmodIfRequired();
+            // Ensure ownership is correct
+            $this->chownIfRequired();
+            // Ensure group is correct
+            $this->chgrpIfRequired();
+
+            // TODO
+            // Obtain inode
+            // Obtain real path
+            // Obtain file descriptor
+            // Ensure we can handle ~ and relative paths
         }
 
-        // Ensure permissions are correct
-        $this->chmodIfRequired();
-        // Ensure ownership is correct
-        $this->chownIfRequired();
-        // Ensure group is correct
-        $this->chgrpIfRequired();
-
-        // TODO
-        // Obtain real path
-        // Obtain file descriptor
-        // Ensure we can handle ~ and relative paths
+        $this->inode = self::getInodeByPath($path->getValue());
     }
 
     protected static function pathIsDirectory(string $path): bool
@@ -161,6 +172,11 @@ class File
         return posix_getgrgid($gid)['name'];
     }
 
+    protected static function getInodeByPath(string $path): int
+    {
+        return fileinode($path);
+    }
+
 //    protected static function getRealPath(string $path): string
 //    {
 //        return realpath($path);
@@ -197,5 +213,15 @@ class File
             );
         }
         return $contents;
+    }
+
+    public function getInode(): int
+    {
+        return $this->inode;
+    }
+
+    public function getPath(): string
+    {
+        return $this->path->getValue();
     }
 }
