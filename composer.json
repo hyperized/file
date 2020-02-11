@@ -1,0 +1,30 @@
+{
+    "name": "hyperized/file",
+    "description": "Basic file management operations with inmutable objects",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gerben Geijteman",
+            "email": "gerben@hyperized.net"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "ext-posix": "*",
+        "hyperized/value-objects": "dev-master"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Hyperized\\File\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Hyperized\\File\\Tests\\": "tests/"
+        }
+    }
+}
