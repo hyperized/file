@@ -13,6 +13,7 @@ class File
     protected static int $defaultMode = 0666;
     protected Path $path;
     protected User $owner;
+    protected Group $group;
     protected Mode $mode;
 
     protected bool $exists;
@@ -21,7 +22,7 @@ class File
 
 //    protected $fileHandler;
 
-    public function __construct(Path $path, ?User $owner = null, ?Mode $mode = null)
+    public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null)
     {
         // If this is true, fail fast.
         if (self::pathIsDirectory($path->getValue())) {
@@ -33,6 +34,7 @@ class File
         // Set requested file information
         $this->path = $path;
         $this->owner = $owner ?? new User((new SystemUser())->getUsername());
+        $this->group = $group ?? new Group((new SystemUser())->getUsername());
         $this->mode = $mode ?? new Mode(self::$defaultMode);
 
         // Generic path information
@@ -49,6 +51,8 @@ class File
         $this->chmodIfRequired();
         // Ensure ownership is correct
         $this->chownIfRequired();
+        // Ensure group is correct
+        $this->chgrpIfRequired();
 
         // TODO
         // Obtain real path
@@ -116,9 +120,21 @@ class File
     protected function chownIfRequired(): void
     {
         if ($this->owner->getValue() !== self::getCurrentFileOwner($this->path->getValue())) {
-            if (!chown($this->path->getValue(), $this->mode->getValue())) {
+            if (!chown($this->path->getValue(), $this->owner->getValue())) {
                 throw new InvalidArgumentException(
-                    'Could not chown File ' . $this->path->getValue() . ' to: ' . $this->mode->getValue()
+                    'Could not chown File ' . $this->path->getValue() . ' to: ' . $this->owner->getValue()
+                );
+            }
+            clearstatcache();
+        }
+    }
+
+    protected function chgrpIfRequired(): void
+    {
+        if ($this->owner->getValue() !== self::getCurrentFileGroup($this->path->getValue())) {
+            if (!chgrp($this->path->getValue(), $this->group->getValue())) {
+                throw new InvalidArgumentException(
+                    'Could not chgrp File ' . $this->path->getValue() . ' to: ' . $this->group->getValue()
                 );
             }
             clearstatcache();
@@ -130,9 +146,19 @@ class File
         return self::getUsernameByUid(fileowner($path));
     }
 
+    protected static function getCurrentFileGroup(string $path): string
+    {
+        return self::getGroupByGid(filegroup($path));
+    }
+
     protected static function getUsernameByUid(int $uid): string
     {
         return posix_getpwuid($uid)['name'];
+    }
+
+    protected static function getGroupByGid(int $gid): string
+    {
+        return posix_getgrgid($gid)['name'];
     }
 
 //    protected static function getRealPath(string $path): string
