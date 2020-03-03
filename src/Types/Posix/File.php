@@ -2,9 +2,19 @@
 
 namespace Hyperized\File\Types\Posix;
 
+use Hyperized\File\Exceptions\CouldNotGetFileContents;
+use Hyperized\File\Exceptions\CouldNotGetGroup;
+use Hyperized\File\Exceptions\CouldNotGetGroupById;
+use Hyperized\File\Exceptions\CouldNotGetGroupId;
+use Hyperized\File\Exceptions\CouldNotGetUsername;
+use Hyperized\File\Exceptions\CouldNotGetUsernameByUserId;
+use Hyperized\File\Exceptions\CouldNotRemoveFile;
+use Hyperized\File\Exceptions\CouldNotWriteToFile;
+use Hyperized\File\Exceptions\FileNotFound;
 use Hyperized\File\Traits\CreateStaticSelf;
 use Hyperized\File\Types\System\User as SystemUser;
 use InvalidArgumentException;
+use Safe\Exceptions\FilesystemException;
 
 class File
 {
@@ -25,6 +35,14 @@ class File
 //    protected $fileHandler;
 
     // TODO: Split create vs listing functionality between constructor and static create
+
+    /**
+     * @throws FileNotFound
+     */
+    public static function create(...$args): self
+    {
+        return new static(...$args);
+    }
 
     public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null, bool $persist = true)
     {
@@ -48,6 +66,8 @@ class File
         $this->relative = self::pathIsRelative($path->getValue());
         $this->relativeToHome = self::pathIsRelativeToHome($path->getValue());
 
+        $this->chgrpIfRequired();
+
         if ($persist) {
             // To process file, we need to know if it exists or not
             if (!$this->exists) {
@@ -68,7 +88,7 @@ class File
             // Ensure we can handle ~ and relative paths
         }
 
-        $this->inode = self::getInodeByPath($path->getValue());
+        //$this->inode = self::getInodeByPath($path->getValue());
     }
 
     protected static function pathIsDirectory(string $path): bool
@@ -104,7 +124,7 @@ class File
     protected function touchIfRequired(): void
     {
         if (!file_exists($this->path->getValue())) {
-            if (!touch($this->path->getValue())) {
+            if (!\Safe\touch($this->path->getValue())) {
                 throw new InvalidArgumentException('Could not touch File ' . $this->path->getValue());
             }
             clearstatcache();
@@ -114,7 +134,7 @@ class File
     protected function chmodIfRequired(): void
     {
         if (decoct($this->mode->getValue()) !== self::getOctalPermissions($this->path->getValue())) {
-            if (!chmod($this->path->getValue(), $this->mode->getValue())) {
+            if (!\Safe\chmod($this->path->getValue(), $this->mode->getValue())) {
                 throw new InvalidArgumentException(
                     'Could not chmod File ' . $this->path->getValue() . ' to: ' . $this->mode->getValue()
                 );
@@ -125,13 +145,13 @@ class File
 
     protected static function getOctalPermissions(string $path): int
     {
-        return (int)substr(sprintf('%o', fileperms($path)), -4);
+        return (int)\Safe\substr(\Safe\sprintf('%o', fileperms($path)), -4);
     }
 
     protected function chownIfRequired(): void
     {
         if ($this->owner->getValue() !== self::getCurrentFileOwner($this->path->getValue())) {
-            if (!chown($this->path->getValue(), $this->owner->getValue())) {
+            if (!\Safe\chown($this->path->getValue(), $this->owner->getValue())) {
                 throw new InvalidArgumentException(
                     'Could not chown File ' . $this->path->getValue() . ' to: ' . $this->owner->getValue()
                 );
@@ -143,7 +163,7 @@ class File
     protected function chgrpIfRequired(): void
     {
         if ($this->owner->getValue() !== self::getCurrentFileGroup($this->path->getValue())) {
-            if (!chgrp($this->path->getValue(), $this->group->getValue())) {
+            if (!\Safe\chgrp($this->path->getValue(), $this->group->getValue())) {
                 throw new InvalidArgumentException(
                     'Could not chgrp File ' . $this->path->getValue() . ' to: ' . $this->group->getValue()
                 );
@@ -152,30 +172,109 @@ class File
         }
     }
 
+    /**
+     * @param string $path
+     * @return string
+     * @throws CouldNotGetUsername
+     */
     protected static function getCurrentFileOwner(string $path): string
     {
-        return self::getUsernameByUid(fileowner($path));
+        try {
+            $username = self::getUsernameByUid(\Safe\fileowner($path));
+        } catch (FilesystemException | CouldNotGetUsernameByUserId $exception) {
+            throw new CouldNotGetUsername(
+                $exception->getMessage(),
+                $exception->getCode(),
+                $exception
+            );
+        }
+
+        return $username;
     }
 
+    /**
+     * @param string $path
+     * @return string
+     * @throws CouldNotGetGroup
+     */
     protected static function getCurrentFileGroup(string $path): string
     {
-        return self::getGroupByGid(filegroup($path));
+        try {
+            $gid = \Hyperized\File\Safe\filegroup($path);
+        } catch (CouldNotGetGroupId $exception) {
+            throw new CouldNotGetGroup(
+                $exception->getMessage(),
+                $exception->getCode(),
+                $exception
+            );
+        }
+
+        if ($gid === FALSE) {
+            throw new CouldNotGetGroup(
+                'Could not get group of path: ' . $path . ' because gid is empty',
+            );
+        }
+
+        try {
+            $group = self::getGroupByGid($gid);
+        } catch (CouldNotGetGroupById $exception) {
+            throw new CouldNotGetGroup(
+                'Could not get group of path: ' . $path . ' because group id could not be obtained',
+                $exception->getCode(),
+                $exception
+            );
+        }
+
+        return $group;
     }
 
+    /**
+     * @param int $uid
+     * @return string
+     * @throws CouldNotGetUsernameByUserId
+     */
     protected static function getUsernameByUid(int $uid): string
     {
-        return posix_getpwuid($uid)['name'];
+        $user = posix_getpwuid($uid);
+
+        if (!is_array($user)) {
+            throw new CouldNotGetUsernameByUserId(
+                'getpwuid yields no result for uid: ' . $uid
+            );
+        }
+
+        if (!array_key_exists('name', $user)) {
+            throw new CouldNotGetUsernameByUserId(
+                'getpwuid results do not contain a valid name field for uid: ' . $uid
+            );
+        }
+
+        return $user['name'];
     }
 
+    /**
+     * @param int $gid
+     * @return string
+     * @throws CouldNotGetGroupById
+     */
     protected static function getGroupByGid(int $gid): string
     {
-        return posix_getgrgid($gid)['name'];
+        $gid = posix_getgrgid($gid)['name'];
+        if ($gid !== '') {
+            throw new CouldNotGetGroupById(
+                'Could not get group id of gid: ' . (string)$gid,
+            );
+        }
+        return $gid;
     }
 
-    protected static function getInodeByPath(string $path): int
-    {
-        return fileinode($path);
-    }
+//    protected static function getInodeByPath(string $path): int
+//    {
+//        try {
+//            return \Safe\fileinode($path);
+//        } catch (FilesystemException $exception) {
+//        }
+//    }
 
 //    protected static function getRealPath(string $path): string
 //    {
@@ -187,29 +286,55 @@ class File
 //        return null !== getenv($env);
 //    }
 
+    /**
+     * @throws CouldNotRemoveFile
+     */
     public function remove(): void
     {
-        unlink($this->path->getValue());
+        try {
+            \Safe\unlink($this->path->getValue());
+        } catch (FilesystemException $exception) {
+            throw new CouldNotRemoveFile(
+                $exception->getMessage(),
+                $exception->getCode(),
+                $exception
+            );
+        }
         clearstatcache();
     }
 
+    /**
+     * @param string $content
+     * @return File
+     * @throws CouldNotWriteToFile
+     */
     public function setContents(string $content): self
     {
-        if (false === file_put_contents($this->path->getValue(), $content)) {
-            throw new InvalidArgumentException(
-                'Could not write contents to file (' . $this->path->getValue() . ')'
+        try {
+            \Safe\file_put_contents($this->path->getValue(), $content);
+        } catch (FilesystemException $exception) {
+            throw new CouldNotWriteToFile(
+                $exception->getMessage(),
+                $exception->getCode(),
+                $exception
             );
         }
 
         return $this;
     }
 
+    /**
+     * @throws CouldNotGetFileContents
+     */
     public function getContents(): string
     {
-        $contents = file_get_contents($this->path->getValue());
-        if (false === $contents) {
-            throw new InvalidArgumentException(
-                'Could not read contents from file (' . $this->path->getValue() . ')'
+        try {
+            $contents = \Safe\file_get_contents($this->path->getValue());
+        } catch (FilesystemException $exception) {
+            throw new CouldNotGetFileContents(
+                $exception->getMessage(),
+                $exception->getCode(),
+                $exception
             );
         }
         return $contents;

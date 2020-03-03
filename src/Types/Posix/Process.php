@@ -1,8 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Hyperized\File\Types\System;
-
-use Hyperized\File\Types\Posix\Path;
+namespace Hyperized\File\Types\Posix;
 
 class Process
 {

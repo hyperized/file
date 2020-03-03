@@ -27,7 +27,7 @@ class Directory
 
     private static function scanFilesInDirectory(string $path): array
     {
-        return scandir($path);
+        return \Safe\scandir($path);
     }
 
     public function getFiles(): Files

@@ -6,4 +6,5 @@ use Hyperized\ValueObjects\Abstracts\Strings\ValueObject;
 
 class User extends ValueObject
 {
+
 }
