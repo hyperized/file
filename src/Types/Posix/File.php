@@ -10,9 +10,9 @@ use Hyperized\File\Exceptions\CouldNotGetUsername;
 use Hyperized\File\Exceptions\CouldNotGetUsernameByUserId;
 use Hyperized\File\Exceptions\CouldNotRemoveFile;
 use Hyperized\File\Exceptions\CouldNotWriteToFile;
-use Hyperized\File\Exceptions\FileNotFound;
+use Hyperized\File\Runtime\EffectiveGroup;
+use Hyperized\File\Runtime\EffectiveUser;
 use Hyperized\File\Traits\CreateStaticSelf;
-use Hyperized\File\Types\System\User as SystemUser;
 use InvalidArgumentException;
 use Safe\Exceptions\FilesystemException;
 
@@ -32,93 +32,58 @@ class File
 
     protected $inode;
 
-//    protected $fileHandler;
-
-    // TODO: Split create vs listing functionality between constructor and static create
-
-    /**
-     * @throws FileNotFound
-     */
-    public static function create(...$args): self
+    public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null)
     {
-        return new static(...$args);
-    }
-
-    public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null, bool $persist = true)
-    {
-        // If this is true, fail fast.
-        if (self::pathIsDirectory($path->getValue())) {
-            throw new InvalidArgumentException(
-                'Provided File path (' . $path->getValue() . ') is in fact a directory.'
-            );
-        }
-
         // Set requested file information
         $this->path = $path;
 
-        // TODO: Only this if file does not exist yet.
-        $this->owner = $owner ?? new User((new SystemUser())->getUsername());
-        $this->group = $group ?? new Group((new SystemUser())->getUsername());
-        $this->mode = $mode ?? new Mode(self::$defaultMode);
+        $this->owner = $owner ?? User::fromInteger((new EffectiveUser())->getId());
+        $this->group = $group ?? Group::fromInteger((new EffectiveGroup())->getId());
+        $this->mode = $mode ?? Mode::fromInteger(static::$defaultMode);
 
         // Generic path information
         $this->exists = self::fileExists($path->getValue());
-        $this->relative = self::pathIsRelative($path->getValue());
-        $this->relativeToHome = self::pathIsRelativeToHome($path->getValue());
 
-        $this->chgrpIfRequired();
+        //        // If this is true, fail fast.
+//        if (self::pathIsDirectory($path->getValue())) {
+//            throw new InvalidArgumentException(
+//                'Provided File path (' . $path->getValue() . ') is in fact a directory.'
+//            );
+//        } -> Move to validation?
 
-        if ($persist) {
-            // To process file, we need to know if it exists or not
-            if (!$this->exists) {
-                $this->touchIfRequired();
-            }
-
-            // Ensure permissions are correct
-            $this->chmodIfRequired();
-            // Ensure ownership is correct
-            $this->chownIfRequired();
-            // Ensure group is correct
-            $this->chgrpIfRequired();
-
-            // TODO
-            // Obtain inode
-            // Obtain real path
-            // Obtain file descriptor
-            // Ensure we can handle ~ and relative paths
-        }
+//        $this->chgrpIfRequired();
+//
+//        if ($persist) {
+//            // To process file, we need to know if it exists or not
+//            if (!$this->exists) {
+//                $this->touchIfRequired();
+//            }
+//
+//            // Ensure permissions are correct
+//            $this->chmodIfRequired();
+//            // Ensure ownership is correct
+//            $this->chownIfRequired();
+//            // Ensure group is correct
+//            $this->chgrpIfRequired();
+//
+//            // TODO
+//            // Obtain inode
+//            // Obtain real path
+//            // Obtain file descriptor
+//            // Ensure we can handle ~ and relative paths
+//        }
 
         //$this->inode = self::getInodeByPath($path->getValue());
     }
 
-    protected static function pathIsDirectory(string $path): bool
+    public function persist(): bool
     {
-        return self::stringEndsWith($path, '/');
-    }
-
-    protected static function stringEndsWith(string $string, string $match): bool
-    {
-        return substr_compare($string, $match, -strlen($match)) === 0;
+        return true; // when successful :)
     }
 
     protected static function fileExists(string $path): bool
     {
         return file_exists($path);
-    }
-
-    protected static function pathIsRelative(string $path): bool
-    {
-        return self::stringStartsWith($path, '.');
-    }
-
-    protected static function stringStartsWith(string $string, string $match): bool
-    {
-        return strpos($string, $match) === 0;
-    }
-
-    protected static function pathIsRelativeToHome(string $path): bool
-    {
-        return self::stringStartsWith($path, '~');
     }
 
     protected function touchIfRequired(): void
@@ -276,10 +241,6 @@ class File
 //        }
 //    }
 
-//    protected static function getRealPath(string $path): string
-//    {
-//        return realpath($path);
-//    }
 //
 //    protected static function envVariableIsSet(string $env): bool
 //    {

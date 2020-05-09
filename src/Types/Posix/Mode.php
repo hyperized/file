@@ -2,11 +2,8 @@
 
 namespace Hyperized\File\Types\Posix;
 
-use Hyperized\ValueObjects\Abstracts\Integers\ValueObject;
+use Hyperized\ValueObjects\Abstracts\Integers\Octal;
 
-class Mode extends ValueObject
+class Mode extends Octal
 {
-    // Todo oct int value object
-    protected int $min = 100;
-    protected int $max = 9999;
 }

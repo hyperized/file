@@ -1,7 +1,7 @@
 {
     "name": "hyperized/file",
     "type": "library",
-    "description": "Basic file management operations with inmutable objects",
+    "description": "Basic POSIX file management operations with immutable objects",
     "license": "MIT",
     "authors": [
         {
@@ -12,8 +12,8 @@
     "require": {
         "php": ">=7.4",
         "ext-posix": "*",
-        "hyperized/value-objects": "dev-master",
-        "thecodingmachine/safe": "^1.1"
+        "hyperized/value-objects": "^0",
+        "thecodingmachine/safe": "^1"
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.4",
