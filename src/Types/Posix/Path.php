@@ -3,6 +3,7 @@
 namespace Hyperized\File\Types\Posix;
 
 use Hyperized\ValueObjects\Abstracts\Strings\ByteArray;
+use function strlen;
 
 class Path extends ByteArray
 {
@@ -17,6 +18,7 @@ class Path extends ByteArray
         $this->isDirectory = static::pathIsDirectory($value);
         $this->isRelative = static::pathIsRelative($value);
         $this->isRelativeToHome = static::pathIsRelativeToHome($value);
+
         // Requires the path to exist :/
         // $this->realPath = realpath($value);
     }
@@ -61,9 +63,9 @@ class Path extends ByteArray
         return $this->isRelativeToHome;
     }
 
-    public function getRealPath(): string
-    {
-        return $this->realPath;
-    }
+//    public function getRealPath(): string
+//    {
+//        return $this->realPath;
+//    }
 
 }

@@ -18,7 +18,7 @@ use Safe\Exceptions\FilesystemException;
 
 class File
 {
-    use CreateStaticSelf;
+//    use CreateStaticSelf;
 
     protected static int $defaultMode = 0666;
     protected Path $path;
@@ -30,7 +30,7 @@ class File
     protected bool $relative;
     protected bool $relativeToHome;
 
-    protected $inode;
+    protected int $inode;
 
     public function __construct(Path $path, ?User $owner = null, ?Group $group = null, ?Mode $mode = null)
     {
