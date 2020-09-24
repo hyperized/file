@@ -10,15 +10,16 @@
         }
     ],
     "require": {
-        "php": ">=7.4",
-        "ext-posix": "*",
-        "hyperized/value-objects": "^0",
-        "thecodingmachine/safe": "^1"
+        "php": "^7.4",
+        "ext-posix": "^7.4",
+        "hyperized/value-objects": "^0.1.1",
+        "thecodingmachine/safe": "^1.2"
     },
     "require-dev": {
-        "ergebnis/composer-normalize": "^2.4",
-        "phpunit/phpunit": "^9.0",
-        "rector/rector": "^0.7"
+        "ergebnis/composer-normalize": "^2.8",
+        "phpunit/phpunit": "^9.3",
+        "rector/rector": "^0.8.10",
+        "vimeo/psalm": "^3.16"
     },
     "autoload": {
         "psr-4": {
@@ -32,5 +33,21 @@
         "psr-4": {
             "Hyperized\\File\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "major": [
+            "composer update",
+            "@update-major",
+            "@update-major-dev",
+            "composer normalize"
+        ],
+        "phpunit": "vendor/phpunit/phpunit/phpunit --configuration phpunit.xml.dist",
+        "psalm": "vendor/bin/psalm",
+        "test": [
+            "@psalm",
+            "@phpunit"
+        ],
+        "update-major": "jq -r '.require | keys[]' composer.json | xargs composer require --update-with-all-dependencies",
+        "update-major-dev": "jq -r '.\"require-dev\" | keys[]' composer.json | xargs composer require --dev --update-with-all-dependencies"
     }
 }
