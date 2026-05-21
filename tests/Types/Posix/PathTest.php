@@ -1,67 +1,73 @@
 <?php declare(strict_types=1);
 
-namespace Hyperized\File\Tests\Types\Posix;
-
+use Hyperized\File\Exceptions\InvalidPath;
 use Hyperized\File\Types\Posix\Path;
-use PHPUnit\Framework\TestCase;
-use function PHPUnit\Framework\assertSame;
 
-class PathTest extends TestCase
-{
-    public function testFromString(): void
-    {
-        assertSame(
-            'hello',
-            Path::fromString('hello')
-                ->getValue()
-        );
-    }
+describe('Path construction', function (): void {
+    it('keeps the original string', function (): void {
+        expect(Path::fromString('/etc/passwd')->value)->toBe('/etc/passwd');
+    });
 
-    public function testPathIsADirectory(): void
-    {
-        self::assertTrue(
-            Path::fromString('/home/')
-                ->isDirectory()
-        );
-    }
+    it('exposes the value via Stringable', function (): void {
+        expect((string) Path::fromString('/etc/passwd'))->toBe('/etc/passwd');
+    });
 
-    public function testPathIsNotADirectory(): void
-    {
-        self::assertFalse(
-            Path::fromString('some_file')
-                ->isDirectory()
-        );
-    }
+    it('rejects empty paths', function (): void {
+        Path::fromString('');
+    })->throws(InvalidPath::class, 'Path may not be empty');
 
-    public function testPathIsRelative(): void
-    {
-        self::assertTrue(
-            Path::fromString('./home/')
-                ->isRelative()
-        );
-    }
+    it('rejects paths containing a null byte', function (): void {
+        Path::fromString("/etc/pa\0sswd");
+    })->throws(InvalidPath::class);
+});
 
-    public function testPathIsNotRelative(): void
-    {
-        self::assertFalse(
-            Path::fromString('/home/')
-                ->isRelative()
-        );
-    }
+describe('Path classification', function (): void {
+    it('recognises absolute paths', function (string $value, bool $expected): void {
+        expect(Path::fromString($value)->isAbsolute())->toBe($expected);
+    })->with([
+        ['/etc/passwd', true],
+        ['/', true],
+        ['relative', false],
+        ['./relative', false],
+        ['~/home', false],
+        ['.bashrc', false],
+    ]);
 
-    public function testPathIsRelativeToHome(): void
-    {
-        self::assertTrue(
-            Path::fromString('~/home/')
-                ->isRelativeToHome()
-        );
-    }
+    it('recognises relative paths only when neither absolute nor home', function (string $value, bool $expected): void {
+        expect(Path::fromString($value)->isRelative())->toBe($expected);
+    })->with([
+        ['relative', true],
+        ['./relative', true],
+        ['.bashrc', true],
+        ['/etc/passwd', false],
+        ['~/home', false],
+    ]);
 
-    public function testPathIsNotRelativeToHome(): void
-    {
-        self::assertFalse(
-            Path::fromString('/home/')
-                ->isRelativeToHome()
-        );
-    }
-}
+    it('recognises home-relative paths', function (string $value, bool $expected): void {
+        expect(Path::fromString($value)->isRelativeToHome())->toBe($expected);
+    })->with([
+        ['~/home', true],
+        ['~', true],
+        ['/etc/passwd', false],
+        ['relative', false],
+    ]);
+
+    it('recognises trailing-separator paths but not the root', function (string $value, bool $expected): void {
+        expect(Path::fromString($value)->endsWithSeparator())->toBe($expected);
+    })->with([
+        ['/etc/', true],
+        ['relative/', true],
+        ['/etc/passwd', false],
+        ['/', false],
+    ]);
+});
+
+describe('Path equality', function (): void {
+    it('treats equal strings as equal', function (): void {
+        expect(Path::fromString('/a')->equals(Path::fromString('/a')))->toBeTrue();
+    });
+
+    it('treats different strings as different', function (): void {
+        expect(Path::fromString('/a')->equals(Path::fromString('/b')))->toBeFalse();
+    });
+});

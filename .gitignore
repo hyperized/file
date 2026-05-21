@@ -1,1 +1,7 @@
 /vendor/
+/.phpunit.cache/
+/.phpstan.cache/
+/coverage/
+/clover.xml
+/.claude/
+/CLAUDE.md

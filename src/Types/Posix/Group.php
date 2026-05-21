@@ -2,23 +2,54 @@
 
 namespace Hyperized\File\Types\Posix;
 
-use Hyperized\File\Exceptions\CouldNot;
-use Hyperized\ValueObjects\Abstracts\Integers\Integer;
-use Safe\Exceptions\PosixException;
+use Hyperized\File\Exceptions\LookupFailed;
+use Stringable;
 
-class Group extends Integer
+final readonly class Group implements Stringable
 {
-    protected static function getGroupByName(string $name): array
+    public int $id;
+
+    private function __construct(int $id)
     {
-        try {
-            return \Safe\posix_getgrnam($name);
-        } catch (PosixException $e) {
-            throw CouldNot::getGroupByName($name);
+        if ($id < 0) {
+            throw LookupFailed::groupById($id);
         }
+        $this->id = $id;
     }
 
-    public static function fromString(string $value): self
+    public static function fromInteger(int $id): self
     {
-        return new static(static::getGroupByName($value)['gid']);
+        return new self($id);
+    }
+
+    public static function fromString(string $name): self
+    {
+        if ($name === '') {
+            throw LookupFailed::groupByName($name);
+        }
+        $entry = posix_getgrnam($name);
+        if ($entry === false) {
+            throw LookupFailed::groupByName($name);
+        }
+        return new self($entry['gid']);
+    }
+
+    public function name(): string
+    {
+        $entry = posix_getgrgid($this->id);
+        if ($entry === false) {
+            throw LookupFailed::groupById($this->id);
+        }
+        return $entry['name'];
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->id === $other->id;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->id;
     }
 }

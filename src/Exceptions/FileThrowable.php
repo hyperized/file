@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Hyperized\File\Exceptions;
 
@@ -6,5 +6,4 @@ use Throwable;
 
 interface FileThrowable extends Throwable
 {
-
 }

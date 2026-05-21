@@ -2,70 +2,56 @@
 
 namespace Hyperized\File\Types\Posix;
 
-use Hyperized\ValueObjects\Abstracts\Strings\ByteArray;
-use function strlen;
+use Hyperized\File\Exceptions\InvalidPath;
+use Stringable;
 
-class Path extends ByteArray
+final readonly class Path implements Stringable
 {
-    protected bool $isDirectory;
-    protected bool $isRelative;
-    protected bool $isRelativeToHome;
-    protected string $realPath;
+    public string $value;
 
-    protected function __construct(string $value)
+    private function __construct(string $value)
     {
-        parent::__construct($value);
-        $this->isDirectory = static::pathIsDirectory($value);
-        $this->isRelative = static::pathIsRelative($value);
-        $this->isRelativeToHome = static::pathIsRelativeToHome($value);
-
-        // Requires the path to exist :/
-        // $this->realPath = realpath($value);
+        if ($value === '') {
+            throw InvalidPath::empty();
+        }
+        if (str_contains($value, "\0")) {
+            throw InvalidPath::containsNullByte($value);
+        }
+        $this->value = $value;
     }
 
-    protected static function pathIsDirectory(string $path): bool
+    public static function fromString(string $value): self
     {
-        return self::stringEndsWith($path, '/');
+        return new self($value);
     }
 
-    protected static function pathIsRelative(string $path): bool
+    public function isAbsolute(): bool
     {
-        return self::stringStartsWith($path, '.');
-    }
-
-    protected static function pathIsRelativeToHome(string $path): bool
-    {
-        return self::stringStartsWith($path, '~');
-    }
-
-    protected static function stringStartsWith(string $string, string $match): bool
-    {
-        return strpos($string, $match) === 0;
-    }
-
-    protected static function stringEndsWith(string $string, string $match): bool
-    {
-        return substr_compare($string, $match, -strlen($match)) === 0;
-    }
-
-    public function isDirectory(): bool
-    {
-        return $this->isDirectory;
-    }
-
-    public function isRelative(): bool
-    {
-        return $this->isRelative;
+        return str_starts_with($this->value, '/');
     }
 
     public function isRelativeToHome(): bool
     {
-        return $this->isRelativeToHome;
+        return str_starts_with($this->value, '~');
     }
 
-//    public function getRealPath(): string
-//    {
-//        return $this->realPath;
-//    }
+    public function isRelative(): bool
+    {
+        return !$this->isAbsolute() && !$this->isRelativeToHome();
+    }
 
+    public function endsWithSeparator(): bool
+    {
+        return str_ends_with($this->value, '/') && $this->value !== '/';
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->value === $other->value;
+    }
+
+    public function __toString(): string
+    {
+        return $this->value;
+    }
 }

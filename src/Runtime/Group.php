@@ -1,29 +1,21 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Hyperized\File\Runtime;
 
-use Hyperized\File\Exceptions\CouldNot;
+use Hyperized\File\Exceptions\LookupFailed;
 
-abstract class Group
+abstract readonly class Group
 {
-    protected int $group_id;
-
-    protected static function getGroupById(int $group_id): array
+    public function __construct(public int $id)
     {
-        $group = posix_getgrgid($group_id);
-        if (empty($group)) {
-            throw CouldNot::getGroupById($group_id);
+    }
+
+    public function name(): string
+    {
+        $entry = posix_getgrgid($this->id);
+        if ($entry === false) {
+            throw LookupFailed::groupById($this->id);
         }
-        return $group;
-    }
-
-    public function getId(): int
-    {
-        return $this->group_id;
-    }
-
-    public function getName(): string
-    {
-        return $this->getAsArray()['name'];
+        return $entry['name'];
     }
 }

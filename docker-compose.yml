@@ -1,0 +1,15 @@
+services:
+  test:
+    build:
+      context: .
+    image: hyperized-file-test:8.3
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+      - composer-cache:/root/.composer/cache
+    working_dir: /app
+    user: "0:0"
+
+volumes:
+  vendor:
+  composer-cache:

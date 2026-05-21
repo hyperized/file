@@ -1,29 +1,21 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Hyperized\File\Runtime;
 
-use Hyperized\File\Exceptions\CouldNot;
+use Hyperized\File\Exceptions\LookupFailed;
 
-abstract class User
+abstract readonly class User
 {
-    protected int $user_id;
-
-    protected static function getUserById(int $user_id): array
+    public function __construct(public int $id)
     {
-        $user = posix_getpwuid($user_id);
-        if (empty($user)) {
-            throw CouldNot::getUserById($user_id);
+    }
+
+    public function name(): string
+    {
+        $entry = posix_getpwuid($this->id);
+        if ($entry === false) {
+            throw LookupFailed::userById($this->id);
         }
-        return $user;
-    }
-
-    public function getId(): int
-    {
-        return $this->user_id;
-    }
-
-    public function getName(): string
-    {
-        return $this->getAsArray()['name'];
+        return $entry['name'];
     }
 }

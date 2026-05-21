@@ -4,27 +4,17 @@ namespace Hyperized\File\Types\System;
 
 use function extension_loaded;
 
-class Capabilities
+final readonly class Capabilities
 {
-    protected bool $hasPosixExtension;
+    public bool $hasPosixExtension;
 
-    public static function new(): self
+    public function __construct()
     {
-        return new static();
+        $this->hasPosixExtension = extension_loaded('posix');
     }
 
-    protected function __construct()
+    public static function detect(): self
     {
-        $this->hasPosixExtension = self::hasPosixExtension();
-    }
-
-    protected static function hasPosixExtension(): bool
-    {
-        return extension_loaded('posix');
-    }
-
-    public function getHasPosixExtension(): bool
-    {
-        return $this->hasPosixExtension;
+        return new self();
     }
 }
